@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strata Enquiry AI Assistant</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="app-wrapper">
+
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="header-text">
+          <h1>Strata Enquiry AI Assistant</h1>
+          <p>Internal staff tool &mdash; all AI suggestions must be reviewed before sending</p>
+        </div>
+        <span class="staff-badge">Staff Only</span>
+      </div>
+    </header>
+
+    <main class="app-main">
+
+      <!-- Input Card -->
+      <section class="card input-card">
+        <div class="card-heading">
+          <h2>Client Enquiry</h2>
+          <p>Paste or type the client&rsquo;s message to analyse it with AI assistance.</p>
+        </div>
+
+        <div class="sample-row">
+          <span class="sample-label">Quick samples:</span>
+          <div class="sample-buttons">
+            <button class="btn-sample" data-sample="new-client">New Client</button>
+            <button class="btn-sample" data-sample="support">Support Request</button>
+            <button class="btn-sample" data-sample="complaint">Complaint</button>
+            <button class="btn-sample" data-sample="general">General Question</button>
+            <button class="btn-sample" data-sample="vague">Vague Input</button>
+            <button class="btn-sample" data-sample="nonsense">Nonsensical</button>
+          </div>
+        </div>
+
+        <div class="textarea-wrapper">
+          <textarea
+            id="enquiry-input"
+            placeholder="Paste or type the client's enquiry here&#8230;"
+            rows="8"
+            maxlength="5000"
+            spellcheck="true"
+          ></textarea>
+          <div class="textarea-footer">
+            <span id="char-count">0 / 5000</span>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button id="analyze-btn" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            Analyse Enquiry
+          </button>
+          <button id="clear-btn" class="btn-ghost">Clear</button>
+        </div>
+      </section>
+
+      <!-- Loading State -->
+      <div id="loading-state" class="loading-state hidden" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Analysing enquiry&hellip;</p>
+      </div>
+
+      <!-- Error Banner -->
+      <div id="error-banner" class="error-banner hidden" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span id="error-message"></span>
+      </div>
+
+      <!-- Results Section -->
+      <section id="results-section" class="results-section hidden" aria-live="polite">
+
+        <!-- Human Review Warning -->
+        <div id="human-review-banner" class="review-banner hidden" role="alert">
+          <div class="review-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+          </div>
+          <div class="review-body">
+            <strong>Human Review Required</strong>
+            <p id="review-reason">This enquiry has been flagged and should be reviewed by a staff member before any response is sent.</p>
+          </div>
+        </div>
+
+        <!-- Summary Grid -->
+        <div class="results-grid">
+
+          <!-- Classification Card -->
+          <div class="card result-card">
+            <h3 class="card-label">Classification</h3>
+            <div id="classification-badge" class="classification-badge"></div>
+
+            <div class="metric-row">
+              <span class="metric-label">Confidence</span>
+              <div class="confidence-wrapper">
+                <div class="confidence-bar">
+                  <div id="confidence-fill" class="confidence-fill"></div>
+                </div>
+                <span id="confidence-value" class="confidence-value"></span>
+              </div>
+            </div>
+
+            <div class="metric-row">
+              <span class="metric-label">Urgency</span>
+              <span id="urgency-badge" class="urgency-badge"></span>
+            </div>
+
+            <div id="risk-signals-row" class="metric-row hidden">
+              <span class="metric-label">Risk signals</span>
+              <div id="risk-signals-tags" class="risk-tags"></div>
+            </div>
+
+            <div class="metric-row">
+              <span class="metric-label">Processed in</span>
+              <span id="processing-time" class="metric-value muted"></span>
+            </div>
+          </div>
+
+          <!-- Detail Card -->
+          <div class="card result-card">
+            <div class="detail-block">
+              <h3 class="card-label">Summary</h3>
+              <p id="summary-text" class="detail-text"></p>
+            </div>
+            <div class="detail-block">
+              <h3 class="card-label">Recommended Action</h3>
+              <p id="recommended-action" class="detail-text action-highlight"></p>
+            </div>
+            <div class="detail-block">
+              <h3 class="card-label">Reason</h3>
+              <p id="reason-text" class="detail-text muted-text"></p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Suggested Response Card -->
+        <div class="card response-card">
+          <div class="response-header">
+            <div>
+              <h3 class="card-label">Suggested Response</h3>
+              <p class="draft-notice">Draft only &mdash; review and edit before sending to the client.</p>
+            </div>
+            <button id="copy-btn" class="btn-copy" title="Copy to clipboard">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+              </svg>
+              Copy
+            </button>
+          </div>
+          <textarea
+            id="suggested-response"
+            class="response-textarea"
+            rows="8"
+            spellcheck="true"
+            aria-label="Suggested response draft"
+          ></textarea>
+        </div>
+
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>Strata Enquiry AI Assistant &mdash; Internal Tool &mdash; All AI output must be reviewed by staff before use</p>
+    </footer>
+
+  </div>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>
