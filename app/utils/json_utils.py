@@ -7,6 +7,7 @@ logger = setup_logger(__name__)
 
 REQUIRED_FIELDS = [
     "classification",
+    "classifications",
     "confidence",
     "urgency",
     "summary",
@@ -18,6 +19,7 @@ REQUIRED_FIELDS = [
 
 FALLBACK_RESULT: dict = {
     "classification": "Unknown / Needs Human Review",
+    "classifications": ["Unknown / Needs Human Review"],
     "confidence": 0.0,
     "urgency": "Unknown",
     "summary": "The AI could not reliably analyse this enquiry.",
@@ -142,18 +144,44 @@ def _validate_and_normalise(data: dict) -> dict | None:
         for field in missing:
             data[field] = FALLBACK_RESULT[field]
 
-    # Normalise confidence to a float in [0.0, 1.0]
-    try:
-        confidence = float(data["confidence"])
-        data["confidence"] = round(max(0.0, min(1.0, confidence)), 2)
-    except (ValueError, TypeError):
-        logger.warning("Invalid confidence value — defaulting to 0.0")
-        data["confidence"] = 0.0
-
     # Enforce allowed classification values
     if data["classification"] not in ALLOWED_CATEGORIES:
         logger.warning(f"Unknown classification '{data['classification']}' — defaulting")
         data["classification"] = "Unknown / Needs Human Review"
+
+    # Normalise classifications list — filter to allowed values, fall back to [classification]
+    raw_classifs = data.get("classifications")
+    if isinstance(raw_classifs, list) and raw_classifs:
+        valid = [c for c in raw_classifs if c in ALLOWED_CATEGORIES]
+        data["classifications"] = valid if valid else [data["classification"]]
+    else:
+        data["classifications"] = [data["classification"]]
+
+    # Normalise category_scores — keep only allowed categories with float values
+    raw_scores = data.get("category_scores")
+    if isinstance(raw_scores, dict) and raw_scores:
+        scores = {}
+        for cat in ALLOWED_CATEGORIES:
+            try:
+                scores[cat] = round(max(0.0, min(1.0, float(raw_scores.get(cat, 0.0)))), 2)
+            except (ValueError, TypeError):
+                scores[cat] = 0.0
+        data["category_scores"] = scores
+    else:
+        data["category_scores"] = {}
+
+    # Derive confidence from the primary category's score when available;
+    # otherwise fall back to the model's self-reported value.
+    primary_score = data["category_scores"].get(data["classification"])
+    if primary_score is not None:
+        data["confidence"] = primary_score
+    else:
+        try:
+            confidence = float(data["confidence"])
+            data["confidence"] = round(max(0.0, min(1.0, confidence)), 2)
+        except (ValueError, TypeError):
+            logger.warning("Invalid confidence value — defaulting to 0.0")
+            data["confidence"] = 0.0
 
     # Ensure needs_human_review is a bool
     if not isinstance(data.get("needs_human_review"), bool):

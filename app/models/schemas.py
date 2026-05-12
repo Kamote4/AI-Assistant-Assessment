@@ -20,6 +20,7 @@ class AnalysisResult:
     A production system could swap this for a Pydantic model for strict validation.
     """
     classification: str
+    classifications: list
     confidence: float
     urgency: str
     summary: str

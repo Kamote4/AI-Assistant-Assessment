@@ -519,6 +519,34 @@ body {
   background: var(--white);
 }
 
+/* ── Secondary classification badges ───────────────────────── */
+.secondary-classifications {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.also-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--grey-500);
+  margin-right: 0.15rem;
+}
+
+.badge-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--grey-200);
+  color: var(--grey-700);
+  border: 1px solid var(--grey-300);
+}
+
 /* ── Risk signal tags ───────────────────────────────────────── */
 .risk-tags {
   display: flex;
@@ -538,6 +566,61 @@ body {
   background: var(--red-100);
   color: var(--red-600);
   border: 1px solid #fca5a5;
+}
+
+/* ── Category confidence breakdown ──────────────────────────── */
+.category-scores-card { padding: 1.25rem 1.5rem; }
+
+.category-scores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.cscore-row {
+  display: grid;
+  grid-template-columns: 11rem 1fr 3rem;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+}
+
+.cscore-label {
+  color: var(--grey-500);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cscore-primary .cscore-label {
+  color: var(--grey-900);
+  font-weight: 700;
+}
+
+.cscore-bar {
+  height: 8px;
+  background: var(--grey-200);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cscore-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--green-600);
+  transition: width 0.4s ease;
+}
+
+.cscore-fill.medium { background: var(--amber-600); }
+.cscore-fill.low    { background: var(--red-600); }
+
+.cscore-pct {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--grey-700);
+  text-align: right;
 }
 
 /* ── Utility ─────────────────────────────────────────────────── */

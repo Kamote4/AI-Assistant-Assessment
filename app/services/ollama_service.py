@@ -32,6 +32,7 @@ def call_ollama(system_prompt: str, user_message: str) -> str:
             {"role": "user", "content": user_message},
         ],
         "stream": False,
+        "options": {"temperature": 0.4},
     }
 
     logger.info(f"Ollama request started | model={config.OLLAMA_MODEL}")

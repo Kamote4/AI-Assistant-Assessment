@@ -1,6 +1,11 @@
 from app.services.preprocessor import PreprocessingResult
 
-SYSTEM_PROMPT = """You are an AI assistant helping staff at a strata management consulting company process incoming client enquiries.
+# ── Prompt components ─────────────────────────────────────────────────────────
+# Split into base (rules + intro) and template (JSON schema) so other modules
+# (e.g. health_check_main.py) can reuse the base and substitute their own
+# JSON template without string-appending hacks.
+
+SYSTEM_PROMPT_BASE = """You are an AI assistant helping staff at a strata management consulting company process incoming client enquiries.
 
 Your task is to analyse each enquiry and return a structured JSON response.
 
@@ -23,18 +28,31 @@ Rules you must follow:
    - the enquiry is safety-related, urgent, or reputationally sensitive
    - the classification is Complaint
 6. Classify vague or nonsensical messages as "Unknown / Needs Human Review".
+7. If the enquiry clearly spans more than one category (for example: a client who is both new and also reporting a support issue), list all applicable categories in "classifications". Set "classification" to the single most dominant one. If only one category applies, "classifications" contains just that one entry.
 
-Required JSON output format (no other text):
+Required JSON output format (no other text):"""
+
+_STANDARD_JSON_TEMPLATE = """
 {
-  "classification": "<one of the five allowed categories>",
+  "classification": "<primary — the single most dominant category>",
+  "classifications": ["<all applicable categories — at least one entry>"],
   "confidence": <float between 0.0 and 1.0>,
   "urgency": "<Low | Medium | High | Unknown>",
   "summary": "<one-sentence summary of the enquiry>",
   "recommended_action": "<specific action the staff member should take next>",
   "suggested_response": "<professional draft reply for staff to review and edit before sending>",
   "needs_human_review": <true | false>,
-  "reason": "<brief explanation of the classification and any review flags>"
+  "reason": "<brief explanation of the classification and any review flags>",
+  "category_scores": {
+    "New Client": <float>,
+    "Support Request": <float>,
+    "Complaint": <float>,
+    "General Question": <float>,
+    "Unknown / Needs Human Review": <float>
+  }
 }"""
+
+SYSTEM_PROMPT = SYSTEM_PROMPT_BASE + _STANDARD_JSON_TEMPLATE
 
 
 def build_analysis_prompt(preprocessing: PreprocessingResult) -> tuple[str, str]:

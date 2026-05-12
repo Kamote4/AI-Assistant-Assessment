@@ -19,16 +19,17 @@ from pathlib import Path
 
 # ── Pipeline imports — mirrors main.py ───────────────────────────────────────
 from config import config
-from app.services.preprocessor import preprocess_enquiry           # Step 2
-from app.services.prompt_builder import build_analysis_prompt      # Step 3
-from app.services.ollama_service import (                          # Step 4
+from app.services.preprocessor import preprocess_enquiry                         # Step 2
+from app.services.prompt_builder import build_analysis_prompt, SYSTEM_PROMPT       # Step 3
+from app.services.ollama_service import (                                         # Step 4
     call_ollama,
     OllamaConnectionError,
     OllamaTimeoutError,
     OllamaModelError,
 )
-from app.utils.json_utils import parse_ai_response                 # Step 5
-from app.services.enquiry_analyzer import apply_review_rules       # Step 6
+from app.utils.json_utils import parse_ai_response                               # Step 5
+from app.services.enquiry_analyzer import apply_review_rules                     # Step 6
+from app.models.schemas import ALLOWED_CATEGORIES                                # scores display
 
 # ── Terminal colour helpers ───────────────────────────────────────────────────
 _USE_COLOR = sys.stdout.isatty()
@@ -95,10 +96,12 @@ def step2_preprocess(raw_text: str):
 
 
 def step3_build_prompt(preprocessing):
-    system_prompt, user_message = build_analysis_prompt(preprocessing)
+    _, user_message = build_analysis_prompt(preprocessing)
+    system_prompt = SYSTEM_PROMPT
     detail = (
         f"system_prompt={len(system_prompt)} chars | "
-        f"user_message={len(user_message)} chars"
+        f"user_message={len(user_message)} chars | "
+        f"category_scores=in template"
     )
     return _pass(detail), (system_prompt, user_message)
 
@@ -130,10 +133,17 @@ def step5_parse_response(raw_response: str):
         result.get("confidence") == 0.0
         and result.get("classification") == "Unknown / Needs Human Review"
     )
+    has_scores = (
+        isinstance(result.get("category_scores"), dict)
+        and len(result["category_scores"]) == len(ALLOWED_CATEGORIES)
+    )
+    classifs = result.get("classifications", [])
     detail = (
         f"classification={result.get('classification')!r} | "
+        f"classifications={classifs} | "
         f"confidence={result.get('confidence')} | "
-        f"urgency={result.get('urgency')!r}"
+        f"urgency={result.get('urgency')!r} | "
+        f"category_scores={'present' if has_scores else 'missing'}"
     )
     if is_fallback:
         detail += " | ⚠ fallback result used (JSON could not be parsed)"
@@ -173,14 +183,54 @@ def step7_assemble(result: dict, preprocessing, start_time: float):
 
 # ── Summary display ───────────────────────────────────────────────────────────
 
+_BAR_WIDTH = 22   # character width of the confidence bars
+
+def _print_category_scores(result: dict):
+    scores   = result.get("category_scores")
+    selected = result.get("classification")
+
+    print(bold("CATEGORY CONFIDENCE BREAKDOWN"))
+    print(LINE)
+
+    if not scores or not isinstance(scores, dict):
+        print(dim("  (model did not return per-category scores)"))
+        print(LINE)
+        print()
+        return
+
+    # Sort highest → lowest so the winner is always at the top.
+    ordered = sorted(
+        [(cat, float(scores.get(cat, 0.0))) for cat in ALLOWED_CATEGORIES],
+        key=lambda x: x[1],
+        reverse=True,
+    )
+
+    for cat, score in ordered:
+        pct    = round(score * 100)
+        filled = round(score * _BAR_WIDTH)
+        bar    = "█" * filled
+        marker = green("  ← selected") if cat == selected else ""
+        print(f"  {cat:<32}  {bar:<{_BAR_WIDTH}}  {pct:>3}%{marker}")
+
+    print(LINE)
+    print()
+
+
 def _print_summary(result: dict, preprocessing):
     pct     = round((result.get("confidence") or 0) * 100)
     signals = preprocessing.risk_signals
     words   = preprocessing.metadata["word_count"]
 
+    classifs = result.get("classifications", [])
+    others   = [c for c in classifs if c != result.get("classification")]
+
     print(LINE)
     print(bold("ANALYSIS SUMMARY"))
-    print(f"  Classification:     {result.get('classification', '—')}")
+    if others:
+        print(f"  Classification:     {result.get('classification', '—')}  {dim('(primary)')}")
+        print(f"  Also applies to:    {', '.join(others)}")
+    else:
+        print(f"  Classification:     {result.get('classification', '—')}")
     print(f"  Confidence:         {pct}%")
     print(f"  Urgency:            {result.get('urgency', '—')}")
     print(f"  Human review:       {'Yes' if result.get('needs_human_review') else 'No'}")
@@ -194,6 +244,7 @@ def _print_summary(result: dict, preprocessing):
     print(bold("RECOMMENDED ACTION"))
     print(f"  {result.get('recommended_action', '—')}")
     print()
+    _print_category_scores(result)
     print(bold("SUGGESTED RESPONSE"))
     print(LINE)
     for line in (result.get("suggested_response") or "—").splitlines():
@@ -243,6 +294,7 @@ def _save_log(
             "SUMMARY",
             "-" * 40,
             f"  Classification:     {result.get('classification', '—')}",
+            f"  All categories:     {', '.join(result.get('classifications', []))}",
             f"  Confidence:         {pct}%",
             f"  Urgency:            {result.get('urgency', '—')}",
             f"  Human review:       {'Yes' if result.get('needs_human_review') else 'No'}",
@@ -254,6 +306,25 @@ def _save_log(
             "",
             "RECOMMENDED ACTION",
             f"  {result.get('recommended_action', '—')}",
+        ]
+
+        scores = result.get("category_scores")
+        if scores and isinstance(scores, dict):
+            sections += ["", "CATEGORY CONFIDENCE BREAKDOWN", "-" * 40]
+            ordered = sorted(
+                [(cat, float(scores.get(cat, 0.0))) for cat in ALLOWED_CATEGORIES],
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            selected = result.get("classification")
+            for cat, score in ordered:
+                marker = "  ← selected" if cat == selected else ""
+                sections.append(f"  {cat:<32}  {round(score * 100):>3}%{marker}")
+        else:
+            sections += ["", "CATEGORY CONFIDENCE BREAKDOWN", "-" * 40,
+                         "  (model did not return per-category scores)"]
+
+        sections += [
             "",
             "SUGGESTED RESPONSE",
             "-" * 40,

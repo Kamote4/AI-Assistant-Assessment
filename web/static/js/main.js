@@ -36,8 +36,11 @@ const recommendedAct  = document.getElementById("recommended-action");
 const reasonText      = document.getElementById("reason-text");
 const suggestedResp   = document.getElementById("suggested-response");
 const copyBtn         = document.getElementById("copy-btn");
-const riskSignalsRow  = document.getElementById("risk-signals-row");
-const riskSignalsTags = document.getElementById("risk-signals-tags");
+const riskSignalsRow        = document.getElementById("risk-signals-row");
+const riskSignalsTags       = document.getElementById("risk-signals-tags");
+const secondaryClassifs     = document.getElementById("secondary-classifications");
+const categoryScoresCard    = document.getElementById("category-scores-card");
+const categoryScoresList    = document.getElementById("category-scores-list");
 
 const MAX_LENGTH = 5000;
 
@@ -124,9 +127,21 @@ function renderResults(data) {
     reviewBanner.classList.add("hidden");
   }
 
-  // Classification badge
+  // Classification badge (primary)
   classifBadge.textContent = data.classification;
   classifBadge.className = "classification-badge " + classificationClass(data.classification);
+
+  // Secondary classification badges — shown when the enquiry spans multiple categories
+  const others = (data.classifications || []).filter((c) => c !== data.classification);
+  if (others.length > 0) {
+    secondaryClassifs.innerHTML =
+      '<span class="also-label">Also:</span>' +
+      others.map((c) => `<span class="badge-secondary">${c}</span>`).join("");
+    secondaryClassifs.classList.remove("hidden");
+  } else {
+    secondaryClassifs.innerHTML = "";
+    secondaryClassifs.classList.add("hidden");
+  }
 
   // Confidence bar
   const pct = Math.round((data.confidence || 0) * 100);
@@ -149,6 +164,32 @@ function renderResults(data) {
   } else {
     riskSignalsTags.innerHTML = "";
     riskSignalsRow.classList.add("hidden");
+  }
+
+  // Category confidence breakdown
+  const CATEGORY_ORDER = [
+    "New Client",
+    "Support Request",
+    "Complaint",
+    "General Question",
+    "Unknown / Needs Human Review",
+  ];
+  const scores = data.category_scores || {};
+  if (Object.keys(scores).length > 0) {
+    categoryScoresList.innerHTML = CATEGORY_ORDER.map((cat) => {
+      const pct = Math.round((scores[cat] || 0) * 100);
+      const isPrimary = cat === data.classification;
+      const fillClass = pct >= 70 ? "" : pct >= 40 ? " medium" : " low";
+      return `<div class="cscore-row${isPrimary ? " cscore-primary" : ""}">
+        <span class="cscore-label">${cat}</span>
+        <div class="cscore-bar"><div class="cscore-fill${fillClass}" style="width:${pct}%"></div></div>
+        <span class="cscore-pct">${pct}%</span>
+      </div>`;
+    }).join("");
+    categoryScoresCard.classList.remove("hidden");
+  } else {
+    categoryScoresList.innerHTML = "";
+    categoryScoresCard.classList.add("hidden");
   }
 
   // Processing time
