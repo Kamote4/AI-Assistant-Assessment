@@ -220,12 +220,12 @@ The app is a sequential pipeline. Each step hands its output to the next. All AI
 
 Before you start, make sure you have the following installed:
 
-| Tool | Check command | Min version |
-|---|---|---|
-| Python | `python3 --version` | 3.10+ |
-| pip | `pip --version` | any |
-| Git | `git --version` | any |
-| Ollama | `ollama --version` | any |
+| Tool | Check command | Version used | Min required |
+|---|---|---|---|
+| Python | `python3 --version` | 3.12.3 | 3.10+ |
+| pip | `pip --version` | 24.0 | any |
+| Git | `git --version` | 2.43.0 | any |
+| Ollama | `ollama --version` | 0.23.2 | any |
 
 If Python is not installed on WSL/Ubuntu:
 ```bash
@@ -258,11 +258,9 @@ You should see `gemma4:e2b` in the list. Ollama will now run automatically in th
 Inside your WSL terminal:
 
 ```bash
-git clone https://github.com/your-username/ai-assessment.git
-cd ai-assessment
+git clone https://github.com/Kamote4/AI-Assistant-Assessment.git
+cd AI-Assistant-Assessment
 ```
-
-> Replace `your-username` with your actual GitHub username.
 
 ---
 
@@ -398,38 +396,6 @@ Set `WEBHOOK_URL=http://localhost:9000` in `.env`, restart the app, submit any e
 
 ---
 
-## Connecting to n8n (workflow automation)
-
-n8n is a self-hosted workflow builder. Once installed you can connect Gmail, Slack, HubSpot, Google Sheets, and many other services to this app without writing extra code — just point an n8n HTTP Request node at `/api/analyze`.
-
-**Install and run n8n (WSL or Windows terminal):**
-```bash
-npx n8n
-```
-
-n8n opens at **http://localhost:5678**.
-
-**Expose the Flask app publicly (for Gmail callbacks and external triggers):**
-
-Install ngrok inside WSL:
-```bash
-curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
-  | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
-  | sudo tee /etc/apt/sources.list.d/ngrok.list
-sudo apt update && sudo apt install ngrok
-```
-
-Sign up free at [ngrok.com](https://ngrok.com), copy your authtoken, then:
-```bash
-ngrok config add-authtoken YOUR_TOKEN
-ngrok http 5000
-```
-
-ngrok gives you a public HTTPS URL that tunnels to your local Flask app.
-
----
-
 ## Health Endpoints
 
 ```bash
@@ -560,12 +526,16 @@ See [docs/LOGGING.md](docs/LOGGING.md) for full detail.
 - **Full enquiry text is not logged** unless explicitly enabled.
 - **Webhook payload does not include raw enquiry text** — only the analysis result.
 
-**For production deployment, add:**
+**Current deployment:** The app runs locally and was exposed publicly during development using [ngrok](https://ngrok.com), which tunnels `localhost:5000` to a public HTTPS URL. This is sufficient for demos and testing but not intended for production.
+
+**For a production deployment, the next steps would include:**
 - Staff authentication (SSO / LDAP)
 - HTTPS via a reverse proxy (Nginx, Caddy)
 - Role-based access control
 - Audit logging with appropriate data handling policies
 - Secure storage if enquiry archiving is needed
+
+See [docs/FUTURE_IMPROVEMENTS.md](docs/FUTURE_IMPROVEMENTS.md) for the full roadmap.
 
 ---
 
