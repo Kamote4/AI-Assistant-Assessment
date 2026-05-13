@@ -4,6 +4,18 @@ A production-minded AI-powered staff tool that helps a strata management consult
 
 ---
 
+## Development Environment
+
+This project was built and tested on **Windows 11 + WSL2 (Ubuntu)**. All commands in this guide are run inside WSL unless stated otherwise. If you are on a native Linux or macOS machine the steps are identical — just skip the WSL-specific notes.
+
+**What is WSL?** Windows Subsystem for Linux lets you run a full Linux terminal inside Windows. If you don't have it, open PowerShell as Administrator and run:
+```powershell
+wsl --install
+```
+Then restart and open Ubuntu from the Start menu.
+
+---
+
 ## Business Problem
 
 Strata Management Consultants receives a high volume of client enquiries via email and web forms. Staff must read each message, determine the nature of the request, decide who should handle it, and write a response. This is time-consuming and inconsistent, especially during peak periods.
@@ -121,87 +133,124 @@ Enquiries that are vague, risky, legal, or angry are automatically flagged for m
 
 ### Prerequisites
 
-- Python 3.12 or later
-- [Ollama](https://ollama.com) installed and running
+Before you start, make sure you have the following installed:
 
-### 1. Install and start Ollama
+| Tool | Check command | Min version |
+|---|---|---|
+| Python | `python3 --version` | 3.10+ |
+| pip | `pip --version` | any |
+| Git | `git --version` | any |
+| Ollama | `ollama --version` | any |
 
-Download Ollama from https://ollama.com and follow the installation instructions for your platform.
+If Python is not installed on WSL/Ubuntu:
+```bash
+sudo apt update && sudo apt install python3 python3-pip python3-venv -y
+```
 
-Pull the default model:
+---
+
+### Step 1 — Install Ollama
+
+> **WSL note:** Install Ollama on **Windows**, not inside WSL. Download the Windows installer from [ollama.com](https://ollama.com). Once installed, Ollama runs as a Windows background service and WSL can reach it automatically at `localhost:11434`.
+
+After installing, open a **Windows** terminal (not WSL) and pull the model:
 
 ```bash
 ollama pull gemma4:e2b
 ```
 
-Verify it was pulled:
-
+Verify it downloaded:
 ```bash
 ollama list
 ```
 
-Ollama runs as a background service after installation. If it is not running, start it:
+You should see `gemma4:e2b` in the list. Ollama will now run automatically in the background every time Windows starts.
+
+---
+
+### Step 2 — Clone the repository
+
+Inside your WSL terminal:
 
 ```bash
-ollama serve
+git clone https://github.com/your-username/ai-assessment.git
+cd ai-assessment
 ```
 
-### 2. Clone / navigate to the project
+> Replace `your-username` with your actual GitHub username.
+
+---
+
+### Step 3 — Create a virtual environment
+
+A virtual environment keeps this project's dependencies separate from the rest of your system.
 
 ```bash
-cd /path/to/ai-assessment
+python3 -m venv .venv
 ```
 
-### 3. Create and activate a virtual environment
-
-```bash
-python -m venv .venv
-```
-
-**Linux / macOS / WSL:**
+**Activate it:**
 ```bash
 source .venv/bin/activate
 ```
 
-**Windows (PowerShell):**
-```powershell
-.venv\Scripts\Activate.ps1
-```
+Your terminal prompt will change to show `(.venv)` at the start — this means it is active.
 
-### 4. Install dependencies
+> **Important:** You need to activate the virtual environment every time you open a new terminal window before running any project commands. If you see `ModuleNotFoundError` errors, it usually means the venv is not active.
+
+---
+
+### Step 4 — Install dependencies
 
 ```bash
 pip install -r requirements.txt
+```
+
+Then download the spaCy language model (used for risk signal detection):
+```bash
 python -m spacy download en_core_web_sm
 ```
 
-### 5. Configure environment variables
+---
 
+### Step 5 — Configure environment variables
+
+Copy the example config file:
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` if needed. The defaults work for a standard local Ollama installation.
+The defaults work out of the box for a standard local setup. Open `.env` in your editor if you need to change the model name, Ollama URL, or logging settings.
 
-### 6. Run the app
+---
+
+### Step 6 — Run the app
 
 ```bash
 python main.py
 ```
 
-The app starts at **http://localhost:5000**.
+You should see:
+```
+INFO  Starting Strata Enquiry AI Assistant
+INFO  Ollama model: gemma4:e2b @ http://localhost:11434
+```
+
+Open your **Windows browser** and go to **http://localhost:5000**.
+
+> **WSL note:** Even though the app runs inside WSL, you open it in your normal Windows browser at `localhost:5000`. WSL2 automatically forwards ports between Windows and Linux — no extra configuration needed.
 
 ---
 
 ## Pipeline Health Check
 
-Run any enquiry through every step of the pipeline interactively:
+Run any enquiry through every step of the pipeline interactively. Make sure your virtual environment is active first:
 
 ```bash
 python health_check_main.py
 ```
 
-Each step prints PASS / FAIL / SKIP. A full summary including per-category confidence breakdown and a timestamped log file are saved to `logs/` after each run.
+Type or paste an enquiry, then press **Enter on a blank line** to submit. Each pipeline step prints PASS / FAIL / SKIP. A full summary with per-category confidence breakdown is shown at the end, and a timestamped log file is saved to `logs/`.
 
 ---
 
@@ -214,7 +263,7 @@ WEBHOOK_URL=https://your-n8n-instance/webhook/...
 WEBHOOK_SECRET=optional-hmac-signing-secret
 ```
 
-Leave `WEBHOOK_URL` blank to disable. The webhook runs in a background thread — it never delays the browser response. If it fails, a warning is logged and the app continues normally.
+Leave `WEBHOOK_URL` blank to disable. The webhook runs in a background thread — it never delays the browser response. If delivery fails, a warning is logged and the app continues normally.
 
 **Payload sent:**
 ```json
@@ -242,7 +291,7 @@ Leave `WEBHOOK_URL` blank to disable. The webhook runs in a background thread �
 
 **Testing the webhook locally:**
 
-Run a simple receiver in a second terminal:
+Open a second WSL terminal, activate the venv, and run:
 ```bash
 python -c "
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -260,19 +309,46 @@ HTTPServer(('', 9000), H).serve_forever()
 "
 ```
 
-Set `WEBHOOK_URL=http://localhost:9000` in `.env`, restart the app, and submit any enquiry.
+Set `WEBHOOK_URL=http://localhost:9000` in `.env`, restart the app, submit any enquiry, and watch the JSON appear in the second terminal.
+
+---
+
+## Connecting to n8n (workflow automation)
+
+n8n is a self-hosted workflow builder. Once installed you can connect Gmail, Slack, HubSpot, Google Sheets, and many other services to this app without writing extra code — just point an n8n HTTP Request node at `/api/analyze`.
+
+**Install and run n8n (WSL or Windows terminal):**
+```bash
+npx n8n
+```
+
+n8n opens at **http://localhost:5678**.
+
+**Expose the Flask app publicly (for Gmail callbacks and external triggers):**
+
+Install ngrok inside WSL:
+```bash
+curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
+  | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
+  | sudo tee /etc/apt/sources.list.d/ngrok.list
+sudo apt update && sudo apt install ngrok
+```
+
+Sign up free at [ngrok.com](https://ngrok.com), copy your authtoken, then:
+```bash
+ngrok config add-authtoken YOUR_TOKEN
+ngrok http 5000
+```
+
+ngrok gives you a public HTTPS URL that tunnels to your local Flask app.
 
 ---
 
 ## Health Endpoints
 
-**App health:**
 ```bash
 curl http://localhost:5000/health
-```
-
-**Ollama health:**
-```bash
 curl http://localhost:5000/health/ollama
 ```
 
@@ -318,6 +394,35 @@ curl http://localhost:5000/health/ollama
   }
 }
 ```
+
+---
+
+## Troubleshooting
+
+**`ModuleNotFoundError: No module named 'flask'` (or any other module)**
+Your virtual environment is not active. Run:
+```bash
+source .venv/bin/activate
+```
+
+**`Could not connect to Ollama`**
+Ollama is not running. On Windows, open Task Manager and check if Ollama is in the system tray. If not, launch it from the Start menu. Then retry.
+
+**`Model 'gemma4:e2b' was not found`**
+The model has not been pulled yet. In a Windows terminal run:
+```bash
+ollama pull gemma4:e2b
+```
+
+**App starts but browser shows "connection refused"**
+Make sure you are opening `http://localhost:5000` (not HTTPS). Flask's development server does not use HTTPS by default.
+
+**WSL can't reach `localhost:11434` (Ollama)**
+In rare WSL network configurations, `localhost` may not forward to Windows. Try using the Windows host IP instead. Find it with:
+```bash
+cat /etc/resolv.conf | grep nameserver
+```
+Then set `OLLAMA_BASE_URL=http://<that-ip>:11434` in your `.env`.
 
 ---
 
@@ -400,7 +505,7 @@ See [docs/FUTURE_IMPROVEMENTS.md](docs/FUTURE_IMPROVEMENTS.md). Key items:
 - RAG integration using company-specific documents (`rag_engine.py` is a placeholder)
 - Staff authentication and access control
 - Persistent enquiry history with audit trail
-- n8n / Zapier workflow integration via the outbound webhook
+- n8n / Zapier workflow integration via the outbound webhook (webhook is built — n8n wiring is next)
 - Log rotation and production observability
 
 ---
@@ -426,7 +531,7 @@ See [docs/FUTURE_IMPROVEMENTS.md](docs/FUTURE_IMPROVEMENTS.md). Key items:
 
 ## Assumptions
 
-1. Ollama runs locally on the default port (11434), configurable via `OLLAMA_BASE_URL`.
+1. Ollama runs on the Windows host at port 11434 (WSL accesses it via `localhost`).
 2. The model `gemma4:e2b` is available in Ollama's registry under that exact name.
 3. The app is run from the project root directory (`python main.py`).
 4. Python 3.10+ is required for `str | None` union type syntax in type hints.
