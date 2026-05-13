@@ -40,9 +40,14 @@ Let staff mark AI results as correct or incorrect. Feed this data back to fine-t
 
 ---
 
-## 5. Email / web form integration
+## 5. Workflow integration (partially implemented)
 
-Connect to the company's email inbox or web enquiry form via API so enquiries appear automatically in the tool without manual copy-paste.
+An outbound webhook is already built — after every analysis the app fires a POST with the full result to any configured `WEBHOOK_URL`. This enables integration with n8n, Zapier, Make, Slack, or any CRM without modifying the app.
+
+Next steps:
+- Connect Gmail to n8n via IMAP trigger so incoming emails are analysed automatically
+- Add CRM routing nodes in n8n (New Client → HubSpot lead, Complaint → priority ticket)
+- Add a Slack notification node for high-urgency or human-review-flagged enquiries
 
 ---
 

@@ -41,6 +41,8 @@ Set `LOG_LEVEL` in `.env` to control the minimum level captured.
 | JSON parsing success / failure | INFO / WARNING |
 | Fallback result used + reason | WARNING |
 | Final classification, confidence, urgency, needs_human_review, processing_time_ms | INFO |
+| Webhook delivered (URL + HTTP status) | INFO |
+| Webhook timeout or connection failure | WARNING |
 
 ---
 
