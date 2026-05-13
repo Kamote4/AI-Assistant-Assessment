@@ -1,4 +1,4 @@
-# Strata Enquiry AI Assistant
+# Enquiry AI Assistant
 
 A production-minded AI-powered staff tool that helps a strata management consultancy process incoming client enquiries. The AI classifies enquiries, detects urgency, summarises the message, recommends a staff action, drafts a professional reply, and fires an outbound webhook so results can flow into any downstream system — all while keeping staff in full control before anything is sent.
 
@@ -18,7 +18,7 @@ Then restart and open Ubuntu from the Start menu.
 
 ## Business Problem
 
-Strata Management Consultants receives a high volume of client enquiries via email and web forms. Staff must read each message, determine the nature of the request, decide who should handle it, and write a response. This is time-consuming and inconsistent, especially during peak periods.
+The business receives a high volume of client enquiries via email and web forms. Staff must read each message, determine the nature of the request, decide who should handle it, and write a response. This is time-consuming and inconsistent, especially during peak periods.
 
 ## Solution Summary
 
