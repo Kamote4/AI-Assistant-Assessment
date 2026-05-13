@@ -35,6 +35,91 @@ Enquiries that are vague, risky, legal, or angry are automatically flagged for m
 
 ---
 
+## Architecture
+
+The app is a sequential pipeline. Each step hands its output to the next. All AI processing is local — nothing leaves the machine.
+
+```
+  STAFF BROWSER
+  ┌─────────────────────────────────────────┐
+  │   Paste enquiry text → click Analyse    │
+  └─────────────────┬───────────────────────┘
+                    │  POST /api/analyze
+                    ▼
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  FLASK PIPELINE  (main.py)                                          │
+  │                                                                     │
+  │  ① PREPROCESS ──────────────────────── preprocessor.py            │
+  │    • Validate length and content                                    │
+  │    • Clean text (whitespace, encoding)                              │
+  │    • Detect risk signals via spaCy (legal / threat keywords)        │
+  │                          │                                          │
+  │                          ▼                                          │
+  │  ② BUILD PROMPT ─────────────────────── prompt_builder.py         │
+  │    • system message: classification rules + JSON schema             │
+  │    • user message:   cleaned enquiry + detected risk context        │
+  │                          │                                          │
+  │                          ▼                                          │
+  │  ③ CALL LOCAL LLM ───────────────────── ollama_service.py         │
+  │    • POST → Ollama API at localhost:11434                           │
+  │    • Model: gemma4:e2b   │   temperature: 0.4                      │
+  │    • Returns raw JSON text                                          │
+  │                          │                                          │
+  │                          ▼                                          │
+  │  ④ PARSE & NORMALISE ────────────────── json_utils.py             │
+  │    Strategy 1 → direct JSON parse                                   │
+  │    Strategy 2 → newline sanitisation + re-parse                     │
+  │    Strategy 3 → extract from ``` code fence ```                     │
+  │    Strategy 4 → find first { ... } block                            │
+  │    ✓ normalise category_scores (clamp each to 0.0 – 1.0)           │
+  │    ✓ derive confidence from category_scores[primary_classification] │
+  │    ✓ enforce allowed classification labels                          │
+  │    ✗ all strategies fail → return safe fallback result              │
+  │                          │                                          │
+  │                          ▼                                          │
+  │  ⑤ BUSINESS RULES ───────────────────── enquiry_analyzer.py       │
+  │    Force needs_human_review = true if any of:                       │
+  │      • confidence < 0.70                                            │
+  │      • vague or nonsensical input                                   │
+  │      • legal / angry / threatening language detected by spaCy       │
+  │      • classification is Complaint (always flagged)                 │
+  │                          │                                          │
+  │              ┌───────────┴───────────┐                             │
+  │              ▼                       ▼                             │
+  │  ⑥ LOG (metadata only)   ⑦ WEBHOOK (background thread)           │
+  │     logger.py                webhook.py                            │
+  │     no raw enquiry text      fire-and-forget POST                  │
+  │     written to logs/         HMAC-SHA256 signed payload            │
+  │              │                       │                             │
+  └──────────────│───────────────────────│─────────────────────────────┘
+                 │                       │
+                 ▼                       ▼
+  ┌──────────────────────┐   ┌───────────────────────────────────────┐
+  │  BROWSER UI          │   │  DOWNSTREAM (optional)                │
+  │                      │   │                                       │
+  │  • Classifications   │   │   n8n / Zapier / Make / custom        │
+  │  • Confidence bars   │   │                                       │
+  │  • Urgency level     │   │   ┌──────────┐   ┌────────────────┐  │
+  │  • Summary           │   │   │  Gmail   │   │  HubSpot /     │  │
+  │  • Recommended action│   │   │  inbox   │   │  Salesforce    │  │
+  │  • Draft reply       │   │   └──────────┘   └────────────────┘  │
+  │  • Human review flag │   │   ┌──────────┐   ┌────────────────┐  │
+  └──────────────────────┘   │   │  Slack   │   │  Google Sheets │  │
+                              │   │  alerts  │   │  / audit log   │  │
+                              │   └──────────┘   └────────────────┘  │
+                              └───────────────────────────────────────┘
+```
+
+### Key design decisions
+
+- **Local-only LLM** — Ollama runs on the same machine; enquiry text never reaches a cloud API
+- **`category_scores` in the prompt** — forces the model to score all five categories, which naturally produces multi-label output and a consistent confidence value (derived from `category_scores[primary]`, not the model's self-reported number)
+- **Four parse strategies** — small local models sometimes wrap JSON in markdown fences or add preamble text; the fallback chain handles this without crashing
+- **Background webhook thread** — the webhook runs as a daemon thread so it cannot block or slow down the browser response
+- **Staff always in the loop** — the tool generates a draft, not a sent reply; the human review flag escalates anything uncertain
+
+---
+
 ## Features
 
 - Classify enquiries into five categories
@@ -538,3 +623,15 @@ See [docs/FUTURE_IMPROVEMENTS.md](docs/FUTURE_IMPROVEMENTS.md). Key items:
 5. The `.venv` virtual environment directory is excluded from version control.
 6. No database or persistent storage is needed — each analysis is stateless.
 7. Staff using the tool are trusted internal users. Authentication is out of scope for this assessment.
+
+---
+
+## AI Tools Used During Development
+
+This project was built with the assistance of AI tools, as permitted by the assessment instructions.
+
+| Tool | How it was used |
+|---|---|
+| **ChatGPT** | Initial brainstorming and architecture design — helped map out the pipeline stages, folder structure, and overall approach before any code was written |
+| **Claude Code** | Primary coding assistant throughout the build — iterative back-and-forth conversation covering implementation, debugging, prompt engineering, the category scores fix, webhook integration, and documentation |
+
