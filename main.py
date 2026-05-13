@@ -46,6 +46,7 @@ from app.services.enquiry_analyzer import apply_review_rules
 # ── Supporting utilities ──────────────────────────────────────────────────────
 from app.services.health_service import check_app_health, check_ollama_health
 from app.utils.response_helpers import success_response, error_response
+from app.integrations.webhook import push_result
 
 # ── Flask app ─────────────────────────────────────────────────────────────────
 logger = setup_logger(__name__)
@@ -159,6 +160,9 @@ def analyze():
         f"needs_human_review={result.get('needs_human_review')} | "
         f"processing_time_ms={processing_time_ms}"
     )
+
+    # Fire-and-forget webhook push (no-op if WEBHOOK_URL is not configured)
+    push_result(result, raw_text)
 
     return success_response(result)
 

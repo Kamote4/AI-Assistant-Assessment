@@ -8,7 +8,7 @@ class Config:
     # Ollama
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "gemma4:e2b")
-    OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "60"))
+    OLLAMA_TIMEOUT: int = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 
     # Flask
     FLASK_DEBUG: bool = os.getenv("FLASK_DEBUG", "False").lower() == "true"
@@ -24,6 +24,13 @@ class Config:
     LOG_FULL_ENQUIRY: bool = os.getenv("LOG_FULL_ENQUIRY", "False").lower() == "true"
     LOG_DIR: str = os.getenv("LOG_DIR", "logs")
     LOG_FILE: str = os.path.join(os.getenv("LOG_DIR", "logs"), "app.log")
+
+    # Outbound webhook (optional)
+    # Set WEBHOOK_URL to receive a POST with the full analysis result after each enquiry.
+    # Set WEBHOOK_SECRET to sign payloads with HMAC-SHA256 (leave blank to skip signing).
+    WEBHOOK_URL: str = os.getenv("WEBHOOK_URL", "")
+    WEBHOOK_SECRET: str = os.getenv("WEBHOOK_SECRET", "")
+    WEBHOOK_TIMEOUT: int = int(os.getenv("WEBHOOK_TIMEOUT", "5"))
 
     # App metadata
     APP_NAME: str = "Strata Enquiry AI Assistant"
